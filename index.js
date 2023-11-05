@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 require('dotenv').config();
 const app=express();
@@ -30,6 +31,12 @@ async function run() {
     const assignmentsCollection=client.db('assignmentsDB').collection('assignments');
 
 
+
+
+    app.post('/jwt',async(req,res)=>{
+        const user=req.body;
+        const token=jwt.sign(user,'secret',{ expiresIn:'1h'});
+    })
 
     app.get('/assignments', async(req,res)=>{
         const cursor=assignmentsCollection.find();
