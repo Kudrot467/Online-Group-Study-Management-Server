@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const cookieParser=require('cookie-parser');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 require('dotenv').config();
 const app=express();
@@ -8,8 +9,13 @@ const port=process.env.PORT||5000;
 
 
 //middleware
-app.use(cors());
+app.use(cors({
+    origin:['http://localhost:5173'],
+    credentials:true
+
+}));
 app.use(express.json());
+app.use(cookieParser());
 
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.clkkquk.mongodb.net/?retryWrites=true&w=majority`;
@@ -23,6 +29,29 @@ const client = new MongoClient(uri, {
   }
 });
 
+//middlewares
+const logger=(req,res,next)=>{
+    console.log(req.method,req.url);
+    next();
+}
+
+const verifyToken=(req,res,next)=>{
+    
+    const token=req?.cookies?.token;
+    if(!token)
+    {
+        return res.status(401).send({message:'Unauthorized Access'})
+    }
+    jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
+        if(err)
+        {
+            return res.send({message:'Unauthorized Access'})
+        }
+        req.user=decoded;
+        next();
+    })
+}
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -35,10 +64,26 @@ async function run() {
 
     app.post('/jwt',async(req,res)=>{
         const user=req.body;
-        const token=jwt.sign(user,'secret',{ expiresIn:'1h'});
+        const token=jwt.sign(user,process.env.ACCESS_TOKEN_SECRET,{ expiresIn:'1h'});
+
+        res.cookie('token',token,{
+            httpOnly:true,
+            secure:true,
+            sameSite:'none'
+        })
+        .send({success:true});
+    })
+    app.post('/logout',async(req,res)=>{
+        const user=req.body;
+        console.log('logging out',user);
+        res.clearCookie('token',{maxAge:0}).send({success:true})
     })
 
-    app.get('/assignments', async(req,res)=>{
+    app.get('/assignments', logger, async(req,res)=>{
+        let query={};
+        if(req.query?.email){
+            query={email: req.query.email}
+        }
         const cursor=assignmentsCollection.find();
         const result1=await cursor.toArray();
         res.send(result1);
