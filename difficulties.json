@@ -1,0 +1,17 @@
+[
+    {
+        "id": 1,
+        "type": "Easy",
+        "pic": "https://i.ibb.co/GC9LTB1/easy.jpg"
+      },
+      {
+        "id": 2,
+        "type": "Medium",
+        "pic": "https://i.ibb.co/Vq7D2Vv/medium.jpg"
+      },
+      {
+        "id": 3,
+        "type": "Hard",
+        "pic": "https://i.ibb.co/Pw5CXG9/difficult.jpg"
+      }
+]

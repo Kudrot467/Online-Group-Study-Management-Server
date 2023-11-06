@@ -1,8 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const difficulties = require('./difficulties.json');
 const cookieParser=require('cookie-parser');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId} = require('mongodb');
 require('dotenv').config();
 const app=express();
 const port=process.env.PORT||5000;
@@ -45,7 +46,7 @@ const verifyToken=(req,res,next)=>{
     jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
         if(err)
         {
-            return res.send({message:'Unauthorized Access'})
+            return res.status(401).send({message:'Unauthorized Access'})
         }
         req.user=decoded;
         next();
@@ -58,6 +59,7 @@ async function run() {
     await client.connect();
     const usersCollection= client.db('registrationDB').collection('users');
     const assignmentsCollection=client.db('assignmentsDB').collection('assignments');
+    const submittedCollection=client.db('assignmentsDB').collection('submittedAssignments');
 
 
 
@@ -79,15 +81,54 @@ async function run() {
         res.clearCookie('token',{maxAge:0}).send({success:true})
     })
 
-    app.get('/assignments', logger, async(req,res)=>{
+    app.get('/assignments', async(req,res)=>{
         let query={};
         if(req.query?.email){
             query={email: req.query.email}
         }
-        const cursor=assignmentsCollection.find();
+       
+        const cursor=assignmentsCollection.find(query);
         const result1=await cursor.toArray();
         res.send(result1);
     })
+
+    app.get('/assignments/:id',async(req,res)=>{
+        const id=req.params.id;
+
+        if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
+            // Invalid ObjectId format
+            return res.status(400).send('Invalid ObjectId format');
+        }
+
+        const query={_id: new ObjectId(id)}
+
+        const options={
+            projection:{title:1, type:1, marks:1}
+        }
+
+        const result= await assignmentsCollection.findOne(query,options);
+        res.send(result);
+    })
+
+
+    app.get('/submittedAssignments',async(req,res)=>{
+        let query={};
+        if(req.query?.email){
+            query={email: req.query.email}
+        }
+        const cursor= submittedCollection.find(query);
+        const result=await cursor.toArray();
+        res.send(result);
+
+    })
+
+    app.post('/submittedAssignments',async(req,res)=>{
+        const submittedAssignment=req.body;
+        console.log(submittedAssignment)
+        const result=await submittedCollection.insertOne(submittedAssignment)
+        res.send(result);
+    })
+
     app.post('/assignments',async(req,res)=>{
         const assignment=req.body;
         const result1= await assignmentsCollection.insertOne(assignment);
@@ -95,8 +136,12 @@ async function run() {
         res.send(result1);
     })
 
-    app.get('/users',async(req,res)=>{
-        const cursor=usersCollection.find();
+    app.get('/users',verifyToken,async(req,res)=>{
+        let query={};
+        if(req.query?.email){
+            query={email: req.query.email}
+        }
+        const cursor=usersCollection.find(query);
         const result=await cursor.toArray();
         res.send(result);
     });
@@ -126,9 +171,15 @@ run().catch(console.dir);
 
 
 
+
+
 //checking server
 app.get('/',(req,res)=>{
     res.send("Assignments server is running");
+})
+
+app.get('/difficulties',(req,res)=>{
+    res.send(difficulties)
 })
 
 app.listen(port,()=>{
