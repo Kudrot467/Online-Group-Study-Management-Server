@@ -32,7 +32,7 @@ const client = new MongoClient(uri, {
 
 //middlewares
 const logger=(req,res,next)=>{
-    console.log(req.method,req.url);
+    console.log(req.method,req.url,req.email);
     next();
 }
 
@@ -64,17 +64,17 @@ async function run() {
 
 
 
-    app.post('/jwt',async(req,res)=>{
-        const user=req.body;
-        const token=jwt.sign(user,process.env.ACCESS_TOKEN_SECRET,{ expiresIn:'1h'});
+    // app.post('/jwt',async(req,res)=>{
+    //     const user=req.body;
+    //     const token=jwt.sign(user,process.env.ACCESS_TOKEN_SECRET,{ expiresIn:'1h'});
 
-        res.cookie('token',token,{
-            httpOnly:true,
-            secure:true,
-            sameSite:'none'
-        })
-        .send({success:true});
-    })
+    //     res.cookie('token',token,{
+    //         httpOnly:true,
+    //         secure:true,
+    //         sameSite:'none'
+    //     })
+    //     .send({success:true});
+    // })
     app.post('/logout',async(req,res)=>{
         const user=req.body;
         console.log('logging out',user);
@@ -110,6 +110,17 @@ async function run() {
         res.send(result);
     })
 
+    app.put('/assignments/:id',async(req,res)=>{
+        
+    })
+
+    app.delete('/assignments/:id',async(req,res)=>{
+        const id=req.params.id;
+        const query={_id : new ObjectId(id)}
+        const result=await assignmentsCollection.deleteOne(query);
+        res.send(result)
+    })
+
 
     app.get('/submittedAssignments',async(req,res)=>{
         let query={};
@@ -136,7 +147,7 @@ async function run() {
         res.send(result1);
     })
 
-    app.get('/users',verifyToken,async(req,res)=>{
+    app.get('/users',async(req,res)=>{
         let query={};
         if(req.query?.email){
             query={email: req.query.email}
