@@ -60,6 +60,7 @@ async function run() {
     const usersCollection= client.db('registrationDB').collection('users');
     const assignmentsCollection=client.db('assignmentsDB').collection('assignments');
     const submittedCollection=client.db('assignmentsDB').collection('submittedAssignments');
+    const meetingPlatformsCollection=client.db('assignmentsDB').collection('meetingPlatforms');
 
 
 
@@ -103,7 +104,7 @@ async function run() {
         const query={_id: new ObjectId(id)}
 
         const options={
-            projection:{title:1, type:1, marks:1}
+            projection:{title:1,email:1, image_url:1, short_description:1, type:1, marks:1}
         }
 
         const result= await assignmentsCollection.findOne(query,options);
@@ -111,7 +112,27 @@ async function run() {
     })
 
     app.put('/assignments/:id',async(req,res)=>{
-        
+        const id = req.params.id
+        const filter = {
+            _id: new ObjectId(id)
+        }
+        const newAssignment = req.body
+        const options = {
+            upsert: true,
+        }
+        const updatedAssignment = {
+            $set: {
+                image_url: newAssignment.image_url,
+                title: newAssignment.title,
+                type: newAssignment.type,
+                marks: newAssignment.marks,
+                short_description: newAssignment.short_description,
+                dates:newAssignment.dates
+            }
+        }
+        const result = await assignmentsCollection.updateOne(filter , updatedAssignment , options)
+        console.log(result);
+        res.send(result);
     })
 
     app.delete('/assignments/:id',async(req,res)=>{
@@ -121,6 +142,11 @@ async function run() {
         res.send(result)
     })
 
+    app.get('/meetingPlatforms',async(req,res)=>{
+        const cursor=meetingPlatformsCollection.find();
+        const result=await cursor.toArray();
+        res.send(result);
+    })
 
     app.get('/submittedAssignments',async(req,res)=>{
         let query={};
