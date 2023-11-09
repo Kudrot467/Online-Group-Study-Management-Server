@@ -11,7 +11,9 @@ const port=process.env.PORT||5000;
 
 //middleware
 app.use(cors({
-    origin:['http://localhost:5173'],
+     origin:['https://ogsf-11.web.app',
+     'https://ogsf-11.firebaseapp.com'
+    ],
     credentials:true
 
 }));
@@ -41,12 +43,12 @@ const verifyToken=(req,res,next)=>{
     const token=req?.cookies?.token;
     if(!token)
     {
-        return res.status(401).send({message:'Unauthorized Access'})
+        return res.status(401).send({message:'Unauthorized Access.no token'})
     }
     jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
         if(err)
         {
-            return res.status(401).send({message:'Unauthorized Access'})
+            return res.status(401).send({message:'Unauthorized Access. some error occur'})
         }
         req.user=decoded;
         next();
@@ -56,7 +58,7 @@ const verifyToken=(req,res,next)=>{
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     const usersCollection= client.db('registrationDB').collection('users');
     const assignmentsCollection=client.db('assignmentsDB').collection('assignments');
     const submittedCollection=client.db('assignmentsDB').collection('submittedAssignments');
@@ -65,17 +67,19 @@ async function run() {
 
 
 
-    // app.post('/jwt',async(req,res)=>{
-    //     const user=req.body;
-    //     const token=jwt.sign(user,process.env.ACCESS_TOKEN_SECRET,{ expiresIn:'1h'});
+    app.post('/jwt',logger,async(req,res)=>{
+        const user=req.body;
+        console.log(user)
+        const token=jwt.sign(user,process.env.ACCESS_TOKEN_SECRET,{ expiresIn:'1h'})
 
-    //     res.cookie('token',token,{
-    //         httpOnly:true,
-    //         secure:true,
-    //         sameSite:'none'
-    //     })
-    //     .send({success:true});
-    // })
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production', 
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+            
+        })
+        .send({success:true});
+    })
     app.post('/logout',async(req,res)=>{
         const user=req.body;
         console.log('logging out',user);
@@ -149,6 +153,12 @@ async function run() {
     })
 
     app.get('/submittedAssignments',async(req,res)=>{
+
+        // if(req.user?.email!==req.query?.email)
+        // {
+        //     return req.status(403).send({message:'forbidden'})
+        // }
+
         let query={};
         if(req.query?.email){
             query={email: req.query.email}
@@ -157,6 +167,44 @@ async function run() {
         const result=await cursor.toArray();
         res.send(result);
 
+    })
+    app.get('/submittedAssignments/:id',async(req,res)=>{
+       
+        const id=req.params.id;
+
+        if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
+            // Invalid ObjectId format
+            return res.status(400).send('Invalid ObjectId format');
+        }
+
+        const query={_id: new ObjectId(id)}
+
+        const options={
+            projection:{obtainMarks:1,feedback:1,pdfLink:1}
+        }
+
+        const result= await submittedCollection.findOne(query,options);
+        res.send(result);
+
+
+    })
+
+    app.put('/submittedAssignments/:id',async(req,res)=>{
+        const id=req.params.id;
+        const filter={_id : new ObjectId(id)}
+        const updateSubmission=req.body;
+        const options = {
+            upsert: true,
+        }
+        const updatedSubmit={
+          $set:{
+            obtainMarks:updateSubmission.obtainMarks,
+            feedback:updateSubmission.feedback,
+            examinee:updateSubmission.examinee
+        }  
+        }
+        const result = await submittedCollection.updateOne(filter , updatedSubmit,options)
+        res.send(result);
     })
 
     app.post('/submittedAssignments',async(req,res)=>{
@@ -194,7 +242,7 @@ async function run() {
 
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
